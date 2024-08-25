@@ -1,11 +1,89 @@
 import os
 import logging
 from telethon import TelegramClient
+from telethon.tl.types import DocumentAttributeVideo
+import ffmpeg
 
 # Configura il logger una sola volta
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 logging.getLogger('telethon').setLevel(logging.WARNING)  # Riduci i log di Telethon per migliorare la leggibilità
+
+def progress(current, total):
+    percent = (current / total) * 100
+    logger.info(f"Caricamento: {percent:.2f}% completato ({current} su {total} bytes)")
+
+def extract_video_metadata(video_path):
+    """
+    Estrae i metadati dal video utilizzando ffmpeg.
+    
+    Args:
+        video_path (str): Percorso del video.
+        
+    Returns:
+        dict: Un dizionario contenente i metadati del video.
+    """
+    probe = ffmpeg.probe(video_path)
+    video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
+    if video_stream is None:
+        raise ValueError("Nessun stream video trovato")
+    
+    duration = float(video_stream['duration'])
+    width = int(video_stream['width'])
+    height = int(video_stream['height'])
+    
+    return {
+        'duration': int(duration),
+        'width': width,
+        'height': height
+    }
+
+async def upload_video(client, channel_username, video_path, thumbnail_path):
+    """
+    Carica un video su un canale Telegram con una miniatura e metadati estratti automaticamente.
+    
+    Args:
+        client (TelegramClient): Istanza del client Telegram.
+        channel_username (str): Nome utente o ID del canale Telegram.
+        video_path (str): Percorso del video da caricare.
+        thumbnail_path (str): Percorso della miniatura del video.
+        
+    Returns:
+        bool: True se il video è stato caricato con successo, False altrimenti.
+    """
+    file_name_without_extension = os.path.splitext(os.path.basename(video_path))[0]
+    success = False
+    try:
+        logger.info(f"Estrazione dei metadati dal video '{video_path}' in corso...")
+        metadata = extract_video_metadata(video_path)
+        
+        logger.info(f"Inizio dell'upload del video '{video_path}' al canale '{channel_username}'.")
+
+        # Invia il video al canale specificato con metadati
+        await client.send_file(
+            channel_username,
+            video_path,
+            caption=file_name_without_extension,
+            thumb=thumbnail_path,
+            supports_streaming=True,
+            attributes=[
+                DocumentAttributeVideo(
+                    duration=metadata['duration'],
+                    w=metadata['width'],
+                    h=metadata['height'],
+                    supports_streaming=True
+                )
+            ],
+            progress_callback=progress
+        )
+        
+        logger.info(f"Video '{video_path}' caricato con successo.")
+        success = True
+
+    except Exception as e:
+        logger.error(f"Errore durante il caricamento del video '{video_path}': {e}", exc_info=True)
+
+    return success
 
 def upload_single_video(api_id, api_hash, bot_token, channel_username, video_path, thumbnail_path):
     """
@@ -22,36 +100,11 @@ def upload_single_video(api_id, api_hash, bot_token, channel_username, video_pat
     Returns:
         bool: True se il video è stato caricato con successo, False altrimenti.
     """
-    # Nome del file senza estensione per la didascalia
-    file_name_without_extension = os.path.splitext(os.path.basename(video_path))[0]
-
     # Crea un'istanza del client
     client = TelegramClient('bot', api_id, api_hash).start(bot_token=bot_token)
 
     async def main():
-        success = False
-        try:
-            logger.info(f"Inizio dell'upload del video '{video_path}' al canale '{channel_username}'.")
-
-            # Invia il video al canale specificato
-            await client.send_file(
-                channel_username,
-                video_path,
-                caption=file_name_without_extension,
-                thumb=thumbnail_path,  # Imposta la miniatura del video
-                supports_streaming=True  # Abilita lo streaming
-            )
-            
-            logger.info(f"Video '{video_path}' caricato con successo.")
-            success = True
-
-        except Exception as e:
-            logger.error(f"Errore durante il caricamento del video '{video_path}': {e}", exc_info=True)
-
-        finally:
-            logger.info("Disconnessione completata.")
-        
-        return success
+        return await upload_video(client, channel_username, video_path, thumbnail_path)
 
     # Avvia il client ed esegui la funzione principale
     with client:
