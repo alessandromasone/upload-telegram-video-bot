@@ -1,5 +1,5 @@
 
-# Upload Telegram Video Bot
+# Upload Telegram Media Bot
 
 Questo repository contiene uno script Python per caricare video su un canale Telegram. Lo script gestisce automaticamente video di grandi dimensioni, dividendoli in subclip, generando miniature e caricando ogni parte su Telegram.
 
@@ -15,8 +15,8 @@ Questo repository contiene uno script Python per caricare video su un canale Tel
 1. Clona il repository:
 
    ```bash
-   git clone https://github.com/alessandromasone/upload-telegram-video-bot.git
-   cd upload-telegram-video-bot
+   git clone https://github.com/alessandromasone/upload-telegram-media-bot.git
+   cd upload-telegram-media-bot
    ```
 
 2. Crea un ambiente virtuale e attivalo:
