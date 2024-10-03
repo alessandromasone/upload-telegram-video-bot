@@ -38,7 +38,7 @@ def extract_video_metadata(video_path):
         'height': height
     }
 
-async def upload_video(client, channel_username, video_path, thumbnail_path):
+async def upload_video(client, channel_username, video_path, thumbnail_path, reply_to=None):
     """
     Carica un video su un canale Telegram con una miniatura e metadati estratti automaticamente.
     
@@ -47,6 +47,7 @@ async def upload_video(client, channel_username, video_path, thumbnail_path):
         channel_username (str): Nome utente o ID del canale Telegram.
         video_path (str): Percorso del video da caricare.
         thumbnail_path (str): Percorso della miniatura del video.
+        reply_to (int, optional): ID del thread in cui caricare il video.
         
     Returns:
         bool: True se il video è stato caricato con successo, False altrimenti.
@@ -74,7 +75,8 @@ async def upload_video(client, channel_username, video_path, thumbnail_path):
                     supports_streaming=True
                 )
             ],
-            progress_callback=progress
+            progress_callback=progress,
+            reply_to=reply_to  # Specifica il reply_to qui
         )
         
         logger.info(f"Video '{video_path}' caricato con successo.")
@@ -85,7 +87,7 @@ async def upload_video(client, channel_username, video_path, thumbnail_path):
 
     return success
 
-def upload_single_video(api_id, api_hash, bot_token, channel_username, video_path, thumbnail_path):
+def upload_single_video(api_id, api_hash, bot_token, channel_username, video_path, thumbnail_path, reply_to=None):
     """
     Carica un singolo video su un canale Telegram con una miniatura.
     
@@ -96,6 +98,7 @@ def upload_single_video(api_id, api_hash, bot_token, channel_username, video_pat
         channel_username (str): Nome utente o ID del canale Telegram.
         video_path (str): Percorso del video da caricare.
         thumbnail_path (str): Percorso della miniatura del video.
+        reply_to (int, optional): ID del thread in cui caricare il video.
         
     Returns:
         bool: True se il video è stato caricato con successo, False altrimenti.
@@ -104,7 +107,39 @@ def upload_single_video(api_id, api_hash, bot_token, channel_username, video_pat
     client = TelegramClient('bot', api_id, api_hash).start(bot_token=bot_token)
 
     async def main():
-        return await upload_video(client, channel_username, video_path, thumbnail_path)
+        return await upload_video(client, channel_username, video_path, thumbnail_path, reply_to)
+
+    # Avvia il client ed esegui la funzione principale
+    with client:
+        return client.loop.run_until_complete(main())
+
+def upload_single_image(api_id, api_hash, bot_token, channel_username, image_path, reply_to=None):
+    """
+    Carica un singolo file immagine su un canale Telegram.
+    
+    Args:
+        api_id (str): ID API di Telegram.
+        api_hash (str): Hash API di Telegram.
+        bot_token (str): Token del bot Telegram.
+        channel_username (str): Nome utente o ID del canale Telegram.
+        image_path (str): Percorso dell'immagine da caricare.
+        reply_to (int, optional): ID del thread in cui caricare l'immagine.
+        
+    Returns:
+        bool: True se l'immagine è stata caricata con successo, False altrimenti.
+    """
+    # Crea un'istanza del client
+    client = TelegramClient('bot', api_id, api_hash).start(bot_token=bot_token)
+
+    async def main():
+        # Carica l'immagine sul canale
+        try:
+            await client.send_file(channel_username, image_path, reply_to=reply_to)  # Specifica il reply_to qui
+            logger.info(f'Immagine caricata con successo: {image_path}')
+            return True
+        except Exception as e:
+            logger.error(f'Errore nel caricamento dell\'immagine {image_path}: {e}', exc_info=True)
+            return False
 
     # Avvia il client ed esegui la funzione principale
     with client:
